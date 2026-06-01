@@ -26,7 +26,7 @@ if PROD:
 else:
     logger.info('Running in development mode.')
 
-STOCKFISH_PATH = 'stockfish'
+STOCKFISH_PATH = './stockfish'
 MODEL_PATH = 'models/catboost.sav'
 MIN_PLIES = 10
 
