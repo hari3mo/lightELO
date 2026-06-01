@@ -94,7 +94,14 @@ def predict(req: PredictRequest):
     if ply_count < MIN_PLIES:
         raise HTTPException(status_code=400, detail=f'Need at least {MIN_PLIES} plies, got {ply_count}')
 
-    tc = req.time_control if req.time_control and '+' in req.time_control else '600+0'
+    # Formats flat time controls correctly before parsing rather than defaulting to 600+0
+    tc = req.time_control
+    if tc and tc not in ['-', '?']:
+        if '+' not in tc:
+            tc = f"{tc}+0"
+    else:
+        tc = '600+0'
+
     row = {
         'evals': req.evals,
         'clocks': req.clocks,

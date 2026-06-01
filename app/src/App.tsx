@@ -110,16 +110,21 @@ const BOARDS_THEMES: BoardTheme[] = [
 ];
 
 function clockToSeconds(clock?: string): string {
-  if (!clock) return '';
-  const parts = clock.split(':');
+  if (!clock) return ''; // Backend needs to know it's empty to handle it gracefully if bypassing above checks
+
+  // Clean up potential formatting oddities
+  const cleanClock = clock.replace(/[^0-9:]/g, '');
+  const parts = cleanClock.split(':');
+
   if (parts.length !== 3) return '';
   const h = parseInt(parts[0], 10) || 0;
   const m = parseInt(parts[1], 10) || 0;
   const s = parseFloat(parts[2]) || 0;
+
   return String(Math.round(h * 3600 + m * 60 + s));
 }
 
-const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: string, color: 'w'|'b', isActive?: boolean, onClick?: () => void, onBoardPieceCode?: string }) => {
+const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: string, color: 'w' | 'b', isActive?: boolean, onClick?: () => void, onBoardPieceCode?: string }) => {
   const moveRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,7 +134,7 @@ const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: 
   }, [isActive]);
 
   if (!san) return null;
-  
+
   let pieceType: PieceType | null = null;
   let restOfMove = san;
 
@@ -138,14 +143,14 @@ const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: 
   else if (san.startsWith('R')) { pieceType = 'r'; restOfMove = san.slice(1); }
   else if (san.startsWith('B')) { pieceType = 'b'; restOfMove = san.slice(1); }
   else if (san.startsWith('N')) { pieceType = 'n'; restOfMove = san.slice(1); }
-  
+
   const isCastle = san.includes('O-O') || san.includes('0-0');
   const displaySan = isCastle ? san.replace(/0/g, 'O') : san;
 
   return (
     <div ref={moveRef} onClick={onClick} className={`flex w-full min-w-0 items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-all duration-150 ${isActive ? 'bg-amber-100 dark:bg-amber-500/15 ring-1 ring-inset ring-amber-400/60 dark:ring-amber-500/40 shadow-sm' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}>
       {pieceType && (
-        <div className="w-4 h-4 shrink-0 flex items-center justify-center -ml-0.5" style={{ filter: color === 'w' ? 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' : 'drop-shadow(0px 1px 1px rgba(255,255,255,0.05))'}}>
+        <div className="w-4 h-4 shrink-0 flex items-center justify-center -ml-0.5" style={{ filter: color === 'w' ? 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' : 'drop-shadow(0px 1px 1px rgba(255,255,255,0.05))' }}>
           <ChessPiece type={pieceType} color={color} />
         </div>
       )}
@@ -169,7 +174,7 @@ export default function App() {
   const [whiteTime, setWhiteTime] = useState<number>(600); // 10 minutes default
   const [blackTime, setBlackTime] = useState<number>(600);
   const [isTimeOver, setIsTimeOver] = useState<boolean>(false);
-  
+
   // Custom interactive board selections
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [highlightedMoves, setHighlightedMoves] = useState<string[]>([]);
@@ -245,14 +250,14 @@ export default function App() {
     const newChess = new Chess();
     try {
       newChess.loadPgn(content);
-      
+
       const hasHeaders = content.includes('[');
       if (!hasHeaders && Object.keys(pgnHeaders).length > 0) {
         for (const [key, value] of Object.entries(pgnHeaders)) {
           newChess.header(key, value as string);
         }
       }
-      
+
       const headers = newChess.header();
       setPgnHeaders(headers);
       setChess(newChess);
@@ -351,7 +356,7 @@ export default function App() {
     const isBotTurn = chess.turn() !== playerColor;
     if (isBotTurn) {
       setAiThinking(true);
-      
+
       // Delay slightly (300ms) to simulate computational thought
       const timer = setTimeout(() => {
         try {
@@ -362,7 +367,7 @@ export default function App() {
               const from = bestMoveLan.slice(0, 2);
               const to = bestMoveLan.slice(2, 4);
               const promotion = bestMoveLan.length > 4 ? bestMoveLan.charAt(4) : undefined;
-              
+
               executePhysicalMove(from, to, promotion, true);
             }
           }
@@ -393,7 +398,7 @@ export default function App() {
       const checkingSide = chess.turn() === 'w' ? 'White' : 'Black';
       return `Check! ${checkingSide} to play.`;
     }
-    
+
     // Normal turn
     const activeTurnSide = chess.turn() === 'w' ? 'White to Move' : 'Black to Move';
     if (gameMode === 'ai') {
@@ -419,10 +424,10 @@ export default function App() {
       } else {
         freshChess.load(chess.fen());
       }
-      
+
       // Save move analytics
       const moveResult = freshChess.move({ from, to, promotion: promotion || 'q' });
-      
+
       if (moveResult) {
         const timeStr = formatTimeForPgn(chess.turn() === 'w' ? whiteTime : blackTime);
         if (history.length > 0 || !botMove) {
@@ -468,7 +473,7 @@ export default function App() {
   // Mathematical capture calculations
   const calculateCapturedPieces = () => {
     const initialCounts: Record<PieceType, number> = { p: 8, r: 2, n: 2, b: 2, q: 1, k: 1 };
-    
+
     const countOnBoard = {
       w: { p: 0, r: 0, n: 0, b: 0, q: 0, k: 0 },
       b: { p: 0, r: 0, n: 0, b: 0, q: 0, k: 0 }
@@ -500,7 +505,7 @@ export default function App() {
   };
 
   const { capturedByWhite, capturedByBlack } = calculateCapturedPieces();
-  
+
   const PIECE_SCORES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   const whiteCapturedScore = capturedByWhite.reduce((sum, type) => sum + PIECE_SCORES[type], 0);
   const blackCapturedScore = capturedByBlack.reduce((sum, type) => sum + PIECE_SCORES[type], 0);
@@ -510,7 +515,7 @@ export default function App() {
   // Undo last action helper
   const handleUndoMove = () => {
     if (history.length === 0) return;
-    
+
     try {
       const freshChess = new Chess();
       if (chess.pgn()) {
@@ -518,9 +523,9 @@ export default function App() {
       } else {
         freshChess.load(chess.fen());
       }
-      
+
       freshChess.undo(); // Undo player's move
-      
+
       let elementsToRemove = 1;
 
       // In vs AI mode, undoing should revert BOTH the AI's move AND the player's last move
@@ -528,26 +533,26 @@ export default function App() {
         freshChess.undo();
         elementsToRemove = 2;
       }
-      
+
       const undoneMoves = history.slice(-elementsToRemove).reverse();
       const targetHistory = history.slice(0, -elementsToRemove);
-      
+
       setChess(freshChess);
       setFen(freshChess.fen());
       setHistory(targetHistory);
       setRedoStack(prev => [...prev, ...undoneMoves]);
       setLastMove(targetHistory.length > 0 ? { from: targetHistory[targetHistory.length - 1].from, to: targetHistory[targetHistory.length - 1].to } : null);
-      
+
       setSelectedSquare(null);
       setHighlightedMoves([]);
     } catch (e) {
-       console.error("Undo move failed", e);
+      console.error("Undo move failed", e);
     }
   };
 
   const handleFastForward = () => {
     if (redoStack.length === 0) return;
-    
+
     try {
       const freshChess = new Chess();
       if (chess.pgn()) {
@@ -555,30 +560,30 @@ export default function App() {
       } else {
         freshChess.load(chess.fen());
       }
-      
+
       const playedMoves = [...redoStack].reverse();
       for (const m of playedMoves) {
         freshChess.move(m.san);
       }
-      
+
       const targetHistory = [...history, ...playedMoves];
-      
+
       setChess(freshChess);
       setFen(freshChess.fen());
       setHistory(targetHistory);
       setRedoStack([]);
       setLastMove(targetHistory.length > 0 ? { from: targetHistory[targetHistory.length - 1].from, to: targetHistory[targetHistory.length - 1].to } : null);
-      
+
       setSelectedSquare(null);
       setHighlightedMoves([]);
     } catch (e) {
-       console.error("Fast forward failed", e);
+      console.error("Fast forward failed", e);
     }
   };
 
   const handleRedoMove = () => {
     if (redoStack.length === 0) return;
-    
+
     try {
       const freshChess = new Chess();
       if (chess.pgn()) {
@@ -586,7 +591,7 @@ export default function App() {
       } else {
         freshChess.load(chess.fen());
       }
-      
+
       let elementsToRedo = 1;
       const firstRedo = redoStack[redoStack.length - 1];
       freshChess.move(firstRedo.san);
@@ -599,48 +604,48 @@ export default function App() {
 
       const playedMoves = redoStack.slice(-elementsToRedo).reverse();
       const targetHistory = [...history, ...playedMoves];
-      
+
       setChess(freshChess);
       setFen(freshChess.fen());
       setHistory([...history, ...playedMoves]);
       setRedoStack(prev => prev.slice(0, -elementsToRedo));
       setLastMove(targetHistory.length > 0 ? { from: targetHistory[targetHistory.length - 1].from, to: targetHistory[targetHistory.length - 1].to } : null);
-      
+
       setSelectedSquare(null);
       setHighlightedMoves([]);
     } catch (e) {
-       console.error("Redo move failed", e);
+      console.error("Redo move failed", e);
     }
   };
 
   const handleRewindAll = () => {
     if (history.length === 0) return;
-    
+
     try {
       const freshChess = new Chess();
       if (history[0].fenBefore) {
         freshChess.load(history[0].fenBefore);
       }
-      
+
       const undoneMoves = [...history].reverse();
-      
+
       setChess(freshChess);
       setFen(freshChess.fen());
       setHistory([]);
       setRedoStack(prev => [...prev, ...undoneMoves]);
       setLastMove(null);
-      
+
       setSelectedSquare(null);
       setHighlightedMoves([]);
     } catch (e) {
-       console.error("Rewind failed", e);
+      console.error("Rewind failed", e);
     }
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      
+
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
@@ -667,7 +672,7 @@ export default function App() {
   const handleJumpToMove = (targetIndex: number) => {
     const fullHistory = [...history, ...[...redoStack].reverse()];
     if (targetIndex < -1 || targetIndex >= fullHistory.length) return;
-    
+
     const currentMoveIndex = history.length - 1;
     if (targetIndex === currentMoveIndex) return;
 
@@ -676,30 +681,30 @@ export default function App() {
       if (fullHistory[0]?.fenBefore) {
         freshChess.load(fullHistory[0].fenBefore);
       }
-      
+
       const newHistory = fullHistory.slice(0, targetIndex + 1);
       const newRedoStack = fullHistory.slice(targetIndex + 1).reverse();
-      
+
       // Preserve headers
       if (Object.keys(pgnHeaders).length > 0) {
         for (const [key, value] of Object.entries(pgnHeaders)) {
           freshChess.header(key, value as string);
         }
       }
-      
+
       for (const move of newHistory) {
         freshChess.move(move.san);
         if (move.clockTime) {
           freshChess.setComment(`[%clk ${move.clockTime}]`);
         }
       }
-      
+
       setChess(freshChess);
       setFen(freshChess.fen());
       setHistory(newHistory);
       setRedoStack(newRedoStack);
       setLastMove(newHistory.length > 0 ? { from: newHistory[newHistory.length - 1].from, to: newHistory[newHistory.length - 1].to } : null);
-      
+
       setSelectedSquare(null);
       setHighlightedMoves([]);
     } catch (e) {
@@ -751,7 +756,10 @@ export default function App() {
 
   // Predict Elo: compute Stockfish evals client-side, then POST to backend for the model.
   useEffect(() => {
-    if (history.length < 10) {
+    // Check if we actually have clock data before predicting
+    const hasClocks = history.some(m => m.clockTime);
+
+    if (history.length < 10 || !hasClocks) {
       setPredictedWhiteElo(null);
       setPredictedBlackElo(null);
       setIsPredicting(false);
@@ -771,9 +779,15 @@ export default function App() {
           .map((m) => clockToSeconds(m.clockTime))
           .join(';');
         const evalsStr = evals.map((e) => e.toFixed(2)).join(';');
-        const tc = pgnHeaders.TimeControl && pgnHeaders.TimeControl.includes('+')
-          ? pgnHeaders.TimeControl
-          : '600+0';
+
+        // Properly format flat time controls
+        let tc = '600+0';
+        if (pgnHeaders.TimeControl && pgnHeaders.TimeControl !== '-' && pgnHeaders.TimeControl !== '?') {
+          tc = pgnHeaders.TimeControl.includes('+')
+            ? pgnHeaders.TimeControl
+            : `${pgnHeaders.TimeControl}+0`;
+        }
+
         // Prefer the PGN's ECO header; otherwise classify from the moves played.
         const headerEco = pgnHeaders.ECO?.trim();
         const eco = headerEco && headerEco !== '?'
@@ -886,17 +900,17 @@ export default function App() {
 
   const formatTime = (seconds: number | string) => {
     let totalSeconds = 0;
-    
+
     if (typeof seconds === 'string') {
       const parts = seconds.split(':');
       if (parts.length === 3) {
         let h = parseInt(parts[0] || '0', 10);
         let m = parseInt(parts[1] || '0', 10);
         let s = parseFloat(parts[2] || '0');
-        
+
         totalSeconds = h * 3600 + m * 60 + s;
         let displayMins = Math.floor(totalSeconds / 60);
-        
+
         if (totalSeconds < 60) {
           return `${displayMins.toString().padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
         } else {
@@ -905,11 +919,11 @@ export default function App() {
       }
       return seconds;
     }
-    
+
     totalSeconds = Math.max(0, seconds as number);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    
+
     if (totalSeconds < 60) {
       return `00:${secs.toFixed(1).padStart(4, '0')}`;
     }
@@ -931,7 +945,7 @@ export default function App() {
           if (mv.color === 'b' && !bTimeStr) bTimeStr = mv.clockTime;
         }
       }
-      
+
       if (!wTimeStr || !bTimeStr) {
         let baseTimeSeconds = 600; // default to 10 minutes matches default whiteTime/blackTime
         if (pgnHeaders.TimeControl) {
@@ -940,12 +954,12 @@ export default function App() {
             baseTimeSeconds = parseInt(tc);
           }
         }
-        
+
         const h = Math.floor(baseTimeSeconds / 3600);
         const m = Math.floor((baseTimeSeconds % 3600) / 60);
         const s = baseTimeSeconds % 60;
         const baseTimeStr = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        
+
         if (!wTimeStr) wTimeStr = baseTimeStr;
         if (!bTimeStr) bTimeStr = baseTimeStr;
       }
@@ -991,7 +1005,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className={`min-h-screen w-full flex flex-col items-center justify-start py-6 px-4 md:px-8 select-none transition-all duration-300 ${activeTheme.background} bg-zinc-50 dark:bg-zinc-950 font-sans`}>
-        
+
         <header className="w-full max-w-6xl flex items-center justify-between mb-6 select-none">
           <h1 className="font-sans font-extrabold text-xl tracking-tight text-zinc-900 dark:text-zinc-50">
             light<span className="text-zinc-400 dark:text-zinc-500">Elo</span>
@@ -1010,10 +1024,10 @@ export default function App() {
 
         {/* Primary Dashboard layout */}
         <main className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Main Column 1: Sidebar (cols 4) */}
           <div className="lg:col-span-4 flex flex-col gap-6 order-2 lg:order-2 lg:h-0 lg:min-h-full">
-            
+
             {/* Live Performance & Opening Analysis Card */}
             <Card className="border-zinc-200 dark:border-zinc-800/80 shadow-sm overflow-hidden bg-white dark:bg-zinc-900 select-none rounded-2xl py-3 shrink-0">
               <CardContent className="px-5 py-3 flex flex-col gap-4">
@@ -1024,7 +1038,7 @@ export default function App() {
                       Predicted Elo Ratings
                     </span>
                   </div>
-                  
+
                   {/* Detailed Elo cards */}
                   <div className="grid grid-cols-2 gap-3">
                     {/* White Elo card */}
@@ -1100,7 +1114,7 @@ export default function App() {
                         </div>
                         <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-500 font-bold mix-blend-difference">B</span>
                       </div>
-                      <div 
+                      <div
                         className="bg-white dark:bg-zinc-200 h-full transition-all duration-700 ease-out"
                         style={{ width: `${Math.max(5, Math.min(95, 50 + (currentStats.score * 5)))}%` }}
                       />
@@ -1123,10 +1137,10 @@ export default function App() {
                   <div className="flex items-center gap-3">
                     {!(history.length > 0 || redoStack.length > 0) && (
                       <label className="cursor-pointer">
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept=".pgn"
-                          className="hidden" 
+                          className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -1181,68 +1195,67 @@ export default function App() {
                     <textarea
                       id="pgn-input"
                       placeholder="1. e4 e5..."
-                      className={`w-full text-[10px] font-mono px-3 py-3 bg-white dark:bg-zinc-900 border rounded-xl focus:outline-none focus:ring-1 flex-1 resize-none select-text text-zinc-900 dark:text-zinc-100 shadow-inner leading-relaxed ${
-                        isPgnInvalid && pgnInputText.trim()
+                      className={`w-full text-[10px] font-mono px-3 py-3 bg-white dark:bg-zinc-900 border rounded-xl focus:outline-none focus:ring-1 flex-1 resize-none select-text text-zinc-900 dark:text-zinc-100 shadow-inner leading-relaxed ${isPgnInvalid && pgnInputText.trim()
                           ? 'border-red-500 focus:ring-red-500 dark:border-red-500/50 dark:focus:ring-red-500/50'
                           : 'border-zinc-200 dark:border-zinc-800 focus:ring-zinc-400'
-                      }`}
+                        }`}
                       value={pgnInputText}
                       onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      const content = event.target?.result as string;
-                      setPgnInputText(content);
-                      parsePgnToState(content, true);
-                    };
-                    reader.readAsText(file);
-                  }}
-                  onChange={(e) => {
-                    const parsedPgn = e.target.value;
-                    const isPaste = Math.abs(parsedPgn.length - pgnInputText.length) > 10;
-                    setPgnInputText(parsedPgn);
-                    
-                    try {
-                      if (!parsedPgn.trim()) {
-                          setPredictedWhiteElo(null);
-                          setPredictedBlackElo(null);
-                          setPgnHeaders({});
-                          // Clear the board if they clear the text
-                          const resetChess = new Chess();
-                          setChess(resetChess);
-                          setFen(resetChess.fen());
-                          setHistory([]);
-                          return;
-                      }
-                      
-                      // Process changes via central function
-                      parsePgnToState(parsedPgn, false);
-                    } catch (err) {
-                      // Invalid PGN mid-typing, ignore layout update until valid
-                    }
-                  }}
-                  onBlur={() => {
-                    if (chess && redoStack.length === 0) {
-                      const movesOnly = chess.pgn().replace(/^\[[a-zA-Z]+\s+".*?"\]\s*\n?/gm, '').replace(/\{[^}]*\}/g, '').replace(/\s*\*$/, '').replace(/\s+/g, ' ').trim();
-                      if (movesOnly) {
-                        setPgnInputText(movesOnly);
-                      }
-                    }
-                  }}
-                />
-                {isPgnInvalid && pgnInputText.trim() && (
-                  <span className="text-[10px] font-sans font-medium text-red-500 dark:text-red-400 mt-0.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                    {pgnErrorMsg || 'Invalid PGN format'}
-                  </span>
-                )}
-                </div>
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const content = event.target?.result as string;
+                          setPgnInputText(content);
+                          parsePgnToState(content, true);
+                        };
+                        reader.readAsText(file);
+                      }}
+                      onChange={(e) => {
+                        const parsedPgn = e.target.value;
+                        const isPaste = Math.abs(parsedPgn.length - pgnInputText.length) > 10;
+                        setPgnInputText(parsedPgn);
+
+                        try {
+                          if (!parsedPgn.trim()) {
+                            setPredictedWhiteElo(null);
+                            setPredictedBlackElo(null);
+                            setPgnHeaders({});
+                            // Clear the board if they clear the text
+                            const resetChess = new Chess();
+                            setChess(resetChess);
+                            setFen(resetChess.fen());
+                            setHistory([]);
+                            return;
+                          }
+
+                          // Process changes via central function
+                          parsePgnToState(parsedPgn, false);
+                        } catch (err) {
+                          // Invalid PGN mid-typing, ignore layout update until valid
+                        }
+                      }}
+                      onBlur={() => {
+                        if (chess && redoStack.length === 0) {
+                          const movesOnly = chess.pgn().replace(/^\[[a-zA-Z]+\s+".*?"\]\s*\n?/gm, '').replace(/\{[^}]*\}/g, '').replace(/\s*\*$/, '').replace(/\s+/g, ' ').trim();
+                          if (movesOnly) {
+                            setPgnInputText(movesOnly);
+                          }
+                        }
+                      }}
+                    />
+                    {isPgnInvalid && pgnInputText.trim() && (
+                      <span className="text-[10px] font-sans font-medium text-red-500 dark:text-red-400 mt-0.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {pgnErrorMsg || 'Invalid PGN format'}
+                      </span>
+                    )}
+                  </div>
                 )}
 
                 <div className="flex gap-1 w-full mt-2 justify-center">
@@ -1324,13 +1337,12 @@ export default function App() {
 
           {/* Main Column 2: Chessboard Area (cols 8) */}
           <div className="lg:col-span-8 flex flex-col gap-5 order-1 lg:order-1">
-            
+
             {/* Players Area: White on the Left, Black on the Right */}
             <div className="grid grid-cols-2 gap-3 w-full animate-in fade-in duration-300">
               {/* White Player Bar */}
-              <div className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 relative overflow-hidden border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm ${
-                isWhiteActive ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
-              }`}>
+              <div className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 relative overflow-hidden border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm ${isWhiteActive ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
+                }`}>
                 <div className="absolute inset-0 bg-gradient-to-r from-zinc-50/50 to-transparent dark:from-zinc-900/50 dark:to-transparent pointer-events-none opacity-40" />
                 <div className="flex items-center gap-3 relative z-10 min-w-0">
                   <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center font-bold text-sm shadow-sm border border-zinc-200 bg-white text-zinc-900">
@@ -1351,21 +1363,20 @@ export default function App() {
                       )}
                     </div>
                     <div className="flex items-center mt-0.5 min-h-[16px] flex-wrap">
-                      <PlayerCapturedBar 
-                        capturedPieces={capturedByWhite} 
-                        capturedPiecesColor="b" 
-                        advantage={isWhiteActive ? whiteAdvantage : 0} 
+                      <PlayerCapturedBar
+                        capturedPieces={capturedByWhite}
+                        capturedPiecesColor="b"
+                        advantage={isWhiteActive ? whiteAdvantage : 0}
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Countdown Chess Clock display */}
-                <div className={`rounded-xl border px-3 py-1.5 shadow-sm transition-all duration-300 relative z-10 shrink-0 ${
-                  isWhiteActive 
-                    ? 'bg-zinc-950 dark:bg-zinc-50 border-zinc-950 dark:border-white text-white dark:text-zinc-950 shadow-sm font-extrabold' 
+                <div className={`rounded-xl border px-3 py-1.5 shadow-sm transition-all duration-300 relative z-10 shrink-0 ${isWhiteActive
+                    ? 'bg-zinc-950 dark:bg-zinc-50 border-zinc-950 dark:border-white text-white dark:text-zinc-950 shadow-sm font-extrabold'
                     : 'bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-100 dark:border-zinc-800 text-zinc-400 dark:text-zinc-650'
-                }`}>
+                  }`}>
                   <p className="font-mono text-xs sm:text-base font-bold tabular-nums tracking-tight">
                     {formatTime(whiteTimerValue)}
                   </p>
@@ -1373,9 +1384,8 @@ export default function App() {
               </div>
 
               {/* Black Player Bar */}
-              <div className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 relative overflow-hidden border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm ${
-                isBlackActive ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
-              }`}>
+              <div className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 relative overflow-hidden border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shadow-sm ${isBlackActive ? 'bg-zinc-50/50 dark:bg-zinc-800/20' : ''
+                }`}>
                 <div className="absolute inset-0 bg-gradient-to-r from-zinc-50/50 to-transparent dark:from-zinc-900/50 dark:to-transparent pointer-events-none opacity-40" />
                 <div className="flex items-center gap-3 relative z-10 min-w-0">
                   <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center font-bold text-sm shadow-sm border border-zinc-900 dark:border-zinc-800 bg-zinc-950 text-zinc-100">
@@ -1396,21 +1406,20 @@ export default function App() {
                       )}
                     </div>
                     <div className="flex items-center mt-0.5 min-h-[16px] flex-wrap">
-                      <PlayerCapturedBar 
-                        capturedPieces={capturedByBlack} 
-                        capturedPiecesColor="w" 
-                        advantage={isBlackActive ? blackAdvantage : 0} 
+                      <PlayerCapturedBar
+                        capturedPieces={capturedByBlack}
+                        capturedPiecesColor="w"
+                        advantage={isBlackActive ? blackAdvantage : 0}
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Countdown Chess Clock display */}
-                <div className={`rounded-xl border px-3 py-1.5 shadow-sm transition-all duration-300 relative z-10 shrink-0 ${
-                  isBlackActive 
-                    ? 'bg-zinc-950 dark:bg-zinc-50 border-zinc-950 dark:border-white text-white dark:text-zinc-950 shadow-sm font-extrabold' 
+                <div className={`rounded-xl border px-3 py-1.5 shadow-sm transition-all duration-300 relative z-10 shrink-0 ${isBlackActive
+                    ? 'bg-zinc-950 dark:bg-zinc-50 border-zinc-950 dark:border-white text-white dark:text-zinc-950 shadow-sm font-extrabold'
                     : 'bg-zinc-50/50 dark:bg-zinc-900/40 border-zinc-100 dark:border-zinc-800 text-zinc-400 dark:text-zinc-650'
-                }`}>
+                  }`}>
                   <p className="font-mono text-xs sm:text-base font-bold tabular-nums tracking-tight">
                     {formatTime(blackTimerValue)}
                   </p>
