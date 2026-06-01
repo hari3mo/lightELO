@@ -7,3 +7,5 @@ catboost_info/
 app/node_modules/
 dist/
 app/dist/
+.env
+stockfish

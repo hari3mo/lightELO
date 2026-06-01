@@ -190,9 +190,6 @@ export default function App() {
   const [pgnErrorMsg, setPgnErrorMsg] = useState<string>('');
   const [isRawPgnMode, setIsRawPgnMode] = useState<boolean>(false);
   const [fenInput, setFenInput] = useState<string>('');
-  const [activePuzzleId, setActivePuzzleId] = useState<string | null>(null);
-  const [currentPuzzleStep, setCurrentPuzzleStep] = useState<number>(0);
-  const [puzzleProgress, setPuzzleProgress] = useState<'unsolved' | 'failed' | 'solved'>('unsolved');
 
   const [redoStack, setRedoStack] = useState<GameMove[]>([]);
 
@@ -769,17 +766,13 @@ export default function App() {
     const timer = setTimeout(async () => {
       setIsPredicting(true);
       try {
-        const evals: number[] = [];
-        for (const move of history) {
-          if (ctrl.signal.aborted) return;
-          evals.push((await stockfish.eval(move.fenAfter, 12, ctrl.signal)).pawns);
-        }
+        // 1. New: Extract the moves as a space-separated string (e.g. "e4 e5 Nf3")
+        const movesStr = history.map((m) => m.san).join(' ');
+
         const clocksStr = history
           .map((m) => clockToSeconds(m.clockTime))
           .join(';');
-        const evalsStr = evals.map((e) => e.toFixed(2)).join(';');
 
-        // Properly format flat time controls
         let tc = '600+0';
         if (pgnHeaders.TimeControl && pgnHeaders.TimeControl !== '-' && pgnHeaders.TimeControl !== '?') {
           tc = pgnHeaders.TimeControl.includes('+')
@@ -787,23 +780,24 @@ export default function App() {
             : `${pgnHeaders.TimeControl}+0`;
         }
 
-        // Prefer the PGN's ECO header; otherwise classify from the moves played.
         const headerEco = pgnHeaders.ECO?.trim();
         const eco = headerEco && headerEco !== '?'
           ? headerEco
           : (classifyEco(history.map((m) => m.san))?.eco ?? 'A00');
 
+        // 2. Updated POST request to send 'moves' instead of 'evals'
         const r = await fetch('/predict', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            evals: evalsStr,
+            moves: movesStr,     // <-- Sending raw moves now!
             clocks: clocksStr,
             time_control: tc,
             eco,
           }),
           signal: ctrl.signal,
         });
+
         if (!r.ok) {
           const detail = (await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`;
           throw new Error(detail);
@@ -815,6 +809,10 @@ export default function App() {
       } catch (e: any) {
         if (e?.name === 'AbortError') return;
         console.error('Prediction failed', e);
+        
+        // NEW: Tell the user exactly why the prediction failed!
+        toast.error(`Prediction Failed: ${e.message}`);
+        
       } finally {
         if (!ctrl.signal.aborted) setIsPredicting(false);
       }
@@ -825,27 +823,6 @@ export default function App() {
       ctrl.abort();
     };
   }, [history, pgnHeaders]);
-
-  // Puzzle Tab selections
-  const handleSelectPuzzle = (puzzle: any) => {
-    setGameMode('puzzle');
-    setActivePuzzleId(puzzle.id);
-    setFen(puzzle.initialFen);
-    setHistory([]);
-    setRedoStack([]);
-    setLastMove(null);
-    setSelectedSquare(null);
-    setHighlightedMoves([]);
-    setCurrentPuzzleStep(0);
-    setPuzzleProgress('unsolved');
-    setWhiteTime(600);
-    setBlackTime(600);
-    setIsTimeOver(false);
-
-    // Automatically flip perspective to match puzzle side
-    setIsFlipped(puzzle.sideToPlay === 'b');
-    toast.info(`Tactical drill active: ${puzzle.title}`);
-  };
 
   // Share FEN to Clipboard
   const handleCopyFen = () => {
