@@ -7,7 +7,6 @@ import { getAIMove } from './utils/ai';
 import { detectOpening, classifyEco } from './utils/openings';
 import { stockfish, type Evaluation } from './utils/stockfish';
 import { ScramblingDigits } from './components/PredictionLoaders';
-import { CHESS_PUZZLES } from './data/puzzles';
 import { BoardTheme, GameMode, GameMove, AIDifficulty, PieceType } from './types';
 import { Toaster, toast } from 'sonner';
 import {
@@ -846,12 +845,6 @@ export default function App() {
     // Automatically flip perspective to match puzzle side
     setIsFlipped(puzzle.sideToPlay === 'b');
     toast.info(`Tactical drill active: ${puzzle.title}`);
-  };
-
-  const handleResetPuzzle = () => {
-    if (!activePuzzleId) return;
-    const active = CHESS_PUZZLES.find(p => p.id === activePuzzleId)!;
-    handleSelectPuzzle(active);
   };
 
   // Share FEN to Clipboard
