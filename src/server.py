@@ -164,6 +164,7 @@ def predict(req: PredictRequest):
     try:
         logger.info('Extracting match features...')
         feats = build_feature_frame(row)
+        # feats = feats.fillna(0)
     except Exception as e:
         logger.error(f'Feature engineering crashed: {str(e)}', exc_info=True)
         raise HTTPException(status_code=500, detail=f'Feature extraction failed: {str(e)}')
