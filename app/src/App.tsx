@@ -6,6 +6,7 @@ import { ChessPiece } from './components/ChessPieces';
 import { getAIMove } from './utils/ai';
 import { detectOpening, classifyEco } from './utils/openings';
 import { stockfish, type Evaluation } from './utils/stockfish';
+import { ScramblingDigits } from './components/PredictionLoaders';
 import { CHESS_PUZZLES } from './data/puzzles';
 import { BoardTheme, GameMode, GameMove, AIDifficulty, PieceType } from './types';
 import { Toaster, toast } from 'sonner';
@@ -142,13 +143,13 @@ const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: 
   const displaySan = isCastle ? san.replace(/0/g, 'O') : san;
 
   return (
-    <div ref={moveRef} onClick={onClick} className={`flex flex-[2] items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-colors ${isActive ? 'bg-zinc-200 dark:bg-zinc-700' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}>
+    <div ref={moveRef} onClick={onClick} className={`flex w-full min-w-0 items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-all duration-150 ${isActive ? 'bg-amber-100 dark:bg-amber-500/15 ring-1 ring-inset ring-amber-400/60 dark:ring-amber-500/40 shadow-sm' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}>
       {pieceType && (
         <div className="w-4 h-4 shrink-0 flex items-center justify-center -ml-0.5" style={{ filter: color === 'w' ? 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' : 'drop-shadow(0px 1px 1px rgba(255,255,255,0.05))'}}>
           <ChessPiece type={pieceType} color={color} />
         </div>
       )}
-      <span className={`text-[13px] ${isCastle ? 'font-sans' : 'font-mono'} tracking-tight font-bold ${color === 'w' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-800 dark:text-zinc-300'}`}>
+      <span className={`text-[13px] ${isCastle ? 'font-sans' : 'font-mono'} tracking-tight font-bold ${isActive ? 'text-amber-900 dark:text-amber-200' : color === 'w' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}`}>
         {pieceType ? restOfMove : displaySan}
       </span>
     </div>
@@ -256,9 +257,9 @@ export default function App() {
       setPgnHeaders(headers);
       setChess(newChess);
       setFen(newChess.fen());
-      
+
       const comments = typeof newChess.getComments === 'function' ? newChess.getComments() : [];
-      
+
       const moves = newChess.history({ verbose: true });
       const reconstructed: GameMove[] = [];
       const tempChess = new Chess();
@@ -268,7 +269,7 @@ export default function App() {
         const fb = tempChess.fen();
         tempChess.move(m.san);
         const fa = tempChess.fen();
-        
+
         let comment = undefined;
         let clockTime = undefined;
         const cObj = comments.find((c: any) => c.fen === fa);
@@ -280,7 +281,7 @@ export default function App() {
             hasAnyClock = true;
           }
         }
-        
+
         reconstructed.push({
           ...m,
           color: m.color as 'w' | 'b',
@@ -292,14 +293,14 @@ export default function App() {
           clockTime
         });
       }
-      
+
       if (isUpload && moves.length > 0 && !hasAnyClock) {
         throw new Error("Uploaded PGN must include clock timestamps ([%clk ...])");
       }
-      
+
       setHistory(reconstructed);
       setRedoStack([]);
-      
+
       setIsPgnInvalid(false);
       setPgnErrorMsg('');
     } catch (e: any) {
@@ -1034,11 +1035,7 @@ export default function App() {
                       </div>
                       <div className="flex items-baseline justify-center gap-1 mt-1 h-7">
                         {isPredicting ? (
-                          <span className="inline-flex items-end gap-1 h-5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </span>
+                          <ScramblingDigits />
                         ) : (
                           <span className="font-mono font-bold text-lg text-zinc-900 dark:text-zinc-50">{predictedWhiteElo ? predictedWhiteElo : '----'}</span>
                         )}
@@ -1053,11 +1050,7 @@ export default function App() {
                       </div>
                       <div className="flex items-baseline justify-center gap-1 mt-1 h-7">
                         {isPredicting ? (
-                          <span className="inline-flex items-end gap-1 h-5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                          </span>
+                          <ScramblingDigits onDark />
                         ) : (
                           <span className="font-mono font-bold text-lg text-white dark:text-zinc-50">{predictedBlackElo ? predictedBlackElo : '----'}</span>
                         )}
@@ -1164,7 +1157,7 @@ export default function App() {
                 </div>
 
                 {(!isRawPgnMode && (history.length > 0 || redoStack.length > 0)) ? (
-                  <div className="flex flex-col w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-1 flex-1 overflow-auto select-none shadow-inner min-h-0 max-h-[300px] lg:max-h-none">
+                  <div className="flex flex-col gap-0.5 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-1.5 flex-1 overflow-auto scroll-smooth select-none shadow-inner min-h-0 max-h-[300px] lg:max-h-none">
                     {(() => {
                       const fullHistory = [...history, ...[...redoStack].reverse()];
                       const currentMoveIndex = history.length - 1;
@@ -1174,8 +1167,8 @@ export default function App() {
                         const whiteMove = fullHistory[whiteMoveIndex];
                         const blackMove = fullHistory[blackMoveIndex];
                         return (
-                          <div key={idx} className={`flex items-stretch text-xs font-sans py-0.5 px-1 rounded ${idx % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-950/30' : 'bg-transparent'}`}>
-                            <span className="w-8 text-zinc-400 dark:text-zinc-600 text-right pr-3 font-semibold self-center select-none text-[10px]">{idx + 1}.</span>
+                          <div key={idx} className={`grid grid-cols-[1.75rem_1fr_1fr] items-stretch gap-1 text-xs font-sans py-0.5 px-1 rounded-md ${idx % 2 === 0 ? 'bg-zinc-50 dark:bg-zinc-800/25' : 'bg-transparent'}`}>
+                            <span className="self-center text-right pr-1.5 font-mono font-semibold select-none text-[10px] text-zinc-400 dark:text-zinc-600">{idx + 1}.</span>
                             <StyledMove san={whiteMove?.san} color="w" isActive={whiteMoveIndex === currentMoveIndex} onClick={() => handleJumpToMove(whiteMoveIndex)} />
                             <StyledMove san={blackMove?.san} color="b" isActive={blackMoveIndex === currentMoveIndex} onClick={() => handleJumpToMove(blackMoveIndex)} />
                           </div>
