@@ -4,8 +4,8 @@ import { ChessBoard } from './components/ChessBoard';
 import { PlayerCapturedBar } from './components/CapturedBar';
 import { ChessPiece } from './components/ChessPieces';
 import { getAIMove } from './utils/ai';
-import { detectOpening } from './utils/openings';
-import { stockfish } from './utils/stockfish';
+import { detectOpening, classifyEco } from './utils/openings';
+import { stockfish, type Evaluation } from './utils/stockfish';
 import { CHESS_PUZZLES } from './data/puzzles';
 import { BoardTheme, GameMode, GameMove, AIDifficulty, PieceType } from './types';
 import { Toaster, toast } from 'sonner';
@@ -764,7 +764,7 @@ export default function App() {
         const evals: number[] = [];
         for (const move of history) {
           if (ctrl.signal.aborted) return;
-          evals.push(await stockfish.eval(move.fenAfter, 12, ctrl.signal));
+          evals.push((await stockfish.eval(move.fenAfter, 12, ctrl.signal)).pawns);
         }
         const clocksStr = history
           .map((m) => clockToSeconds(m.clockTime))
@@ -773,7 +773,11 @@ export default function App() {
         const tc = pgnHeaders.TimeControl && pgnHeaders.TimeControl.includes('+')
           ? pgnHeaders.TimeControl
           : '600+0';
-        const eco = pgnHeaders.ECO || 'A00';
+        // Prefer the PGN's ECO header; otherwise classify from the moves played.
+        const headerEco = pgnHeaders.ECO?.trim();
+        const eco = headerEco && headerEco !== '?'
+          ? headerEco
+          : (classifyEco(history.map((m) => m.san))?.eco ?? 'A00');
 
         const r = await fetch('/predict', {
           method: 'POST',
@@ -846,18 +850,18 @@ export default function App() {
     toast.success('Game PGN copied to clipboard!');
   };
 
-  // Realtime engine evaluation via Stockfish WASM. Pawn units, White's POV.
-  const [evalScore, setEvalScore] = useState<number>(0);
+  // Realtime engine evaluation via Stockfish WASM. White's POV.
+  const [evaluation, setEvaluation] = useState<Evaluation>({ pawns: 0 });
   useEffect(() => {
     const ctrl = new AbortController();
     stockfish
-      .streamEval(fen, (score) => {
-        if (!ctrl.signal.aborted) setEvalScore(score);
+      .streamEval(fen, (e) => {
+        if (!ctrl.signal.aborted) setEvaluation(e);
       }, 12, ctrl.signal)
       .catch((e) => { if (e?.name !== 'AbortError') console.error('Eval failed', e); });
     return () => ctrl.abort();
   }, [fen]);
-  const currentStats = { score: evalScore };
+  const currentStats = { score: evaluation.pawns, mate: evaluation.mate };
 
   const getWhitePlayerDetails = () => {
     if (Object.keys(pgnHeaders).length > 0) {
@@ -1096,7 +1100,9 @@ export default function App() {
                         <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-500 font-bold mix-blend-difference">W</span>
                         <div className="flex flex-1 justify-center items-center mix-blend-difference">
                           <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-500 font-bold">
-                            {currentStats.score > 0 ? '+' : ''}{currentStats.score.toFixed(1)}
+                            {currentStats.mate !== undefined
+                              ? (currentStats.mate < 0 ? `-M${Math.abs(currentStats.mate)}` : `M${currentStats.mate}`)
+                              : `${currentStats.score > 0 ? '+' : ''}${currentStats.score.toFixed(1)}`}
                           </span>
                         </div>
                         <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-500 font-bold mix-blend-difference">B</span>
