@@ -33,8 +33,10 @@ class StockfishEngine {
         const line = String(e.data ?? '');
         if (!uciok && line === 'uciok') {
           uciok = true;
-          const threads = Math.min(8, Math.max(2, (navigator.hardwareConcurrency || 4) - 1));
-          this.worker!.postMessage(`setoption name Threads value ${threads}`);
+
+          // STRICT DETERMINISM: Force exactly 1 thread. 
+          // Multi-threading (Lazy SMP) causes race conditions and different evaluations.
+          this.worker!.postMessage('setoption name Threads value 1');
           this.worker!.postMessage('setoption name Hash value 64');
           this.worker!.postMessage('isready');
         } else if (line === 'readyok') {
@@ -145,6 +147,10 @@ class StockfishEngine {
 
       worker.addEventListener('message', onMsg);
       signal?.addEventListener('abort', onAbort, { once: true });
+
+      // STRICT DETERMINISM: Wipe the engine's memory before analyzing the new position
+      worker.postMessage('setoption name Clear Hash');
+      worker.postMessage('ucinewgame');
 
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go depth ${depth}`);
