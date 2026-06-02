@@ -6,7 +6,7 @@ import re
 import io
 import os
 
-PGN_PATH = 'data/lichess_db_standard_rated_2026-01.pgn.zst' # archive of raw PGN files downloaded from https://database.lichess.org/ (January 2026)
+PGN_PATH = 'data/lichess_db_standard_rated_2026-01.pgn.zst' # archive of ~90 million raw PGN files from https://database.lichess.org/ (January 2026)
 OUTPUT_PATH = 'data/lichess_games_raw.csv' # raw games (moves + clocks); evals are filled in locally by evaluate_games.py
 
 ELO_RANGES = [ # track ELO distribution of extracted games

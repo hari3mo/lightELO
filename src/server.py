@@ -131,7 +131,7 @@ def predict(req: PredictRequest):
     except Exception as e:
         logger.error(f'Feature engineering crashed: {str(e)}', exc_info=True)
         raise HTTPException(status_code=500, detail=f'Feature extraction failed: {str(e)}')
-
+    
     try:
         logger.info('Running CatBoost inference...')
         preds = model.predict(feats)
