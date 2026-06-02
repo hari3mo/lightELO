@@ -20,7 +20,6 @@ ELO_RANGES = [ # track ELO distribution of extracted games
 ]
 
 TOTAL_GAMES = 140_000 # total number of games to extract
-TARGET_PER_RANGE = 20_000 # number of games to extract per ELO range; 7 ranges * 20K rows = 140K total (unused logic)
 MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
 TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and correspondence time controls (noisy)
 
@@ -174,7 +173,7 @@ def stream_games():
         for line in text:
             game_text.append(line)
             if line.startswith("1. "):
-                yield chess.pgn.read_game(io.StringIO("".join(game_text))) # no longer gated on %eval; Stockfish scores games locally
+                yield chess.pgn.read_game(io.StringIO("".join(game_text)))
                 game_text.clear()
 
 def main():

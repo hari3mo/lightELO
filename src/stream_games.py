@@ -21,7 +21,6 @@ ELO_RANGES = [
 ]
 
 TOTAL_GAMES = 1_000_000
-TARGET_PER_RANGE = 100_000
 MAX_GAMES_PER_PLAYER = 5
 TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'}
 
@@ -163,6 +162,8 @@ def filter_games(games):
         range_counts[white_range] += 1
         player_counts[white_player] = player_counts.get(white_player, 0) + 1
         player_counts[black_player] = player_counts.get(black_player, 0) + 1
+
+        yielded_games += 1
 
         if yielded_games % 1_000 == 0: # print debug info every 1,000 games
             print(f'{time.strftime('%H:%M:%S')} - {yielded_games}/{parsed_games} games: {range_counts}')
