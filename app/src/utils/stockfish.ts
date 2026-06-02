@@ -2,7 +2,7 @@
 // Exposes a Promise-based eval API with a FEN cache and a sequential UCI queue
 // (UCI is single-engine so only one `go` can run at a time per worker).
 
-const WORKER_URL = '/stockfish-18-lite.js';
+const WORKER_URL = '/stockfish-18-lite-single.js';
 const DEFAULT_DEPTH = 12;
 
 export interface Evaluation {
@@ -34,8 +34,9 @@ class StockfishEngine {
         if (!uciok && line === 'uciok') {
           uciok = true;
 
-          // STRICT DETERMINISM: Force exactly 1 thread. 
-          // Multi-threading (Lazy SMP) causes race conditions and different evaluations.
+          // STRICT DETERMINISM: this is the single-threaded build (no Lazy SMP),
+          // so search is inherently deterministic. Threads=1 is a harmless no-op
+          // here but documents intent; Hash=64 matches the training-label config.
           this.worker!.postMessage('setoption name Threads value 1');
           this.worker!.postMessage('setoption name Hash value 64');
           this.worker!.postMessage('isready');

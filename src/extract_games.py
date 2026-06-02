@@ -7,7 +7,7 @@ import io
 import os
 
 PGN_PATH = 'data/lichess_db_standard_rated_2026-01.pgn.zst' # archive of ~90 million raw PGN files from https://database.lichess.org/ (January 2026)
-OUTPUT_PATH = 'data/lichess_games_raw.csv' # raw games (moves + clocks); evals are filled in locally by evaluate_games.py
+OUTPUT_PATH = 'data/lichess_games_raw.csv' # raw games (moves + clocks); evals are filled in locally by app/scripts/evaluate-games.mjs
 
 ELO_RANGES = [ # track ELO distribution of extracted games
     ('800-', 0, 800),
@@ -19,7 +19,7 @@ ELO_RANGES = [ # track ELO distribution of extracted games
     ('2300+', 2300, 10_000)
 ]
 
-TOTAL_GAMES = 140_000 # total number of games to extract
+TOTAL_GAMES = 1_000_000 # total number of games to extract
 MAX_GAMES_PER_PLAYER = 5 # per-player cap to keep the sample diverse
 TIME_CONTROL_FILTER = {'blitz', 'rapid', 'classical'} # filter out bullet and correspondence time controls (noisy)
 
@@ -113,15 +113,14 @@ def extract_row(game):
         'clocks': ';'.join(clocks)
     }
 
-# Filter games
 def filter_games(games):
     range_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
     player_counts = {}
-    filtered_games = []
     parsed_games = 0
+    filtered_count = 0
 
     for game in games:
-        if len(filtered_games) >= TOTAL_GAMES or sum(range_counts.values()) >= TOTAL_GAMES:
+        if filtered_count >= TOTAL_GAMES or sum(range_counts.values()) >= TOTAL_GAMES:
             break
         parsed_games += 1
         headers = game.headers
@@ -156,12 +155,12 @@ def filter_games(games):
         range_counts[white_range] += 1
         player_counts[white_player] = player_counts.get(white_player, 0) + 1
         player_counts[black_player] = player_counts.get(black_player, 0) + 1
-        filtered_games.append(game)
+        
+        filtered_count += 1
+        yield game
 
-        if len(filtered_games) % 1_000 == 0: # print debug info every 1,000 games
-            print(f'{time.strftime('%H:%M:%S')} - {len(filtered_games)}/{parsed_games} games: {range_counts}')
-            
-    return filtered_games
+        if filtered_count % 1_000 == 0: # print debug info every 1,000 games
+            print(f"{time.strftime('%H:%M:%S')} - {filtered_count}/{parsed_games} games: {range_counts}")
 
 # Sequentially read games from compressed pgn.zst file; too large to fit in memory (~30 gb)
 # **Code from Gemini**
@@ -179,11 +178,28 @@ def stream_games():
 def main():
     if not os.path.exists(OUTPUT_PATH):
         rows = []
+        chunk_size = 1_000
+        
+        print(f"Starting iterative extraction to {OUTPUT_PATH}...")
         for game in filter_games(stream_games()):
             rows.append(extract_row(game))
-        print(f'Writing {len(rows)} rows to CSV...')
-        df = pd.DataFrame(rows, columns=CSV_COLUMNS)
-        df.to_csv(OUTPUT_PATH, index=False)
+            
+            # Periodically dump to disk to protect data and keep memory usage stable
+            if len(rows) >= chunk_size:
+                df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+                # Only write header if the file doesn't exist yet or is completely empty
+                write_header = not os.path.exists(OUTPUT_PATH) or os.stat(OUTPUT_PATH).st_size == 0
+                df.to_csv(OUTPUT_PATH, mode='a', index=False, header=write_header)
+                rows.clear()
+        
+        # Write any trailing games that didn't perfectly align with the chunk size split
+        if rows:
+            df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+            write_header = not os.path.exists(OUTPUT_PATH) or os.stat(OUTPUT_PATH).st_size == 0
+            df.to_csv(OUTPUT_PATH, mode='a', index=False, header=write_header)
+            rows.clear()
+            
+        print("Extraction complete!")
     else:
         print(f'{OUTPUT_PATH} already exists.')
 

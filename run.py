@@ -1,9 +1,15 @@
 from src import extract_games
-from src import evaluate_games
 from src import create_features
 from src import train_model
+import subprocess
 import time
 import sys
+import os
+
+EVAL_SCRIPT = os.path.join('app', 'scripts', 'evaluate-games.mjs')
+
+def evaluate_games_node():
+    subprocess.run(['node', EVAL_SCRIPT], check=True)
 
 if __name__ == "__main__":
     args = sys.argv[1:]
@@ -14,10 +20,10 @@ if __name__ == "__main__":
     extract_games.main()
     extract_end = time.time()
     print(f'Game extraction completed in {int(extract_end - extract_start)} seconds.')
-    # Step 2: Evaluate positions locally with Stockfish
+    # Step 2: Evaluate positions locally with Stockfish (Node.js) 
     print('Evaluating games...')
     eval_start = time.time()
-    evaluate_games.main()
+    evaluate_games_node()
     eval_end = time.time()
     print(f'Game evaluation completed in {int(eval_end - eval_start)} seconds.')
     # Step 3: Feature engineering

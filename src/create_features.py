@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-GAMES_CSV_PATH = 'data/lichess_games.csv' # output from extract_games.py
+GAMES_CSV_PATH = 'data/lichess_games.csv' # output from app/scripts/evaluate-games.mjs
 OUTPUT_PATH = 'data/lichess_features.csv'
 
 def create_player_features(game):
