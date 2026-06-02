@@ -120,10 +120,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default='catboost', 
                         choices=['catboost', 'xgboost', 'lightgbm', 'linear'])
+    parser.add_argument('--all', action='store_true')
     args = parser.parse_args()
 
     if os.path.exists(FEATURES_PATH):
-        evaluate(args.model)
+        if args.all:
+            for model_type in ['catboost', 'xgboost', 'lightgbm', 'linear']:
+                evaluate(model_type)
+        else:
+            evaluate(args.model)
     else:
         print(f"Error: {FEATURES_PATH} not found. Please run feature extraction first.")
 
