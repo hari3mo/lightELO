@@ -21,11 +21,12 @@ if __name__ == "__main__":
     extract_end = time.time()
     print(f'Game extraction completed in {int(extract_end - extract_start)} seconds.')
     # Step 2: Evaluate positions locally with Stockfish (Node.js) 
-    print('Evaluating games...')
-    eval_start = time.time()
-    evaluate_games_node()
-    eval_end = time.time()
-    print(f'Game evaluation completed in {int(eval_end - eval_start)} seconds.')
+    if not os.path.exists('data/lichess_games.csv'):
+        print('Evaluating games...')
+        eval_start = time.time()
+        evaluate_games_node()
+        eval_end = time.time()
+        print(f'Game evaluation completed in {int(eval_end - eval_start)} seconds.')
     # Step 3: Feature engineering
     print('Creating features...')
     features_start = time.time()

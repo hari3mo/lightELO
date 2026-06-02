@@ -3,13 +3,16 @@
 // position with the SAME Stockfish build the browser app uses, and writes the
 // eval-filled CSV consumed by create_features.
 //
-// Runs a pool of child-process workers (one engine each). Resumable: rows whose
-// game_id is already in the output are skipped. Usage:
+// Runs a pool of child-process workers (one engine each). Each game is appended to
+// the output CSV the moment it finishes, so progress survives a crash or Ctrl-C.
+// Resumable: on restart, games already written (with evals) are skipped, a row
+// left half-written by a hard kill is trimmed and re-evaluated, so the CSV always
+// picks up cleanly from the last fully written game. Usage:
 //   node scripts/evaluate-games.mjs [--limit N] [--workers N]
 
 import { fork } from 'child_process';
 import { fileURLToPath } from 'url';
-import { createReadStream, existsSync, createWriteStream, readFileSync } from 'fs';
+import { createReadStream, existsSync, createWriteStream, readFileSync, statSync, openSync, readSync, ftruncateSync, closeSync } from 'fs';
 import { dirname, resolve } from 'path';
 import os from 'os';
 import { parse } from 'csv-parse';
@@ -20,7 +23,7 @@ const INPUT_PATH = resolve(REPO_ROOT, 'data', 'lichess_games_raw.csv');
 const OUTPUT_PATH = resolve(REPO_ROOT, 'data', 'lichess_games.csv');
 const WORKER_PATH = resolve(__dirname, 'eval-worker.mjs');
 
-const FLUSH_EVERY = 200;
+const LOG_EVERY = 200; // progress-log cadence; every game is written to disk as it finishes, independent of this
 const SAMPLE_SIZE = 140_000; // match the row count input to create_features.py
 
 function parseArgs() {
@@ -77,8 +80,35 @@ function readDoneIds(path) {
   const ids = new Set();
   if (!existsSync(path)) return ids;
   const records = parse(readFileSync(path, 'utf8'), { columns: true, skip_empty_lines: true, relax_column_count: true });
-  for (const r of records) if (r.game_id) ids.add(r.game_id);
+  // Require evals: a row truncated by a hard interrupt has none, so it's re-evaluated rather than skipped with bad data.
+  for (const r of records) if (r.game_id && r.evals) ids.add(r.game_id);
   return ids;
+}
+
+// A hard kill (SIGKILL / power loss) can leave a half-written final line in the
+// output CSV. Every complete row is written with a trailing '\n', so any bytes
+// after the last newline are an orphaned fragment. Drop them before we resume
+// appending — otherwise the fragment sits mid-file and corrupts the row count
+// for create_features.py (the affected game is re-evaluated and re-appended).
+function trimPartialTail(path) {
+  if (!existsSync(path)) return;
+  const size = statSync(path).size;
+  if (size === 0) return;
+  const fd = openSync(path, 'r+');
+  try {
+    const tailLen = Math.min(size, 1 << 16);
+    const buf = Buffer.alloc(tailLen);
+    readSync(fd, buf, 0, tailLen, size - tailLen);
+    const lastNl = buf.lastIndexOf(0x0a);
+    if (lastNl === -1) return; // no newline in tail (line longer than the window) — leave untouched
+    const keep = size - tailLen + lastNl + 1;
+    if (keep < size) {
+      ftruncateSync(fd, keep);
+      console.log(`Trimmed ${size - keep} bytes of a half-written row left by a hard interrupt.`);
+    }
+  } finally {
+    closeSync(fd);
+  }
 }
 
 async function main() {
@@ -98,6 +128,7 @@ async function main() {
   const sampledRows = sampleRows(allRows, SAMPLE_SIZE);
   const columns = Object.keys(sampledRows[0]);
 
+  trimPartialTail(OUTPUT_PATH);
   const doneIds = readDoneIds(OUTPUT_PATH);
   if (doneIds.size) console.log(`Resuming: ${doneIds.size} games already evaluated.`);
 
@@ -111,7 +142,7 @@ async function main() {
   const nWorkers = Math.min(workers, todo.length);
   console.log(`Evaluating ${todo.length} games at depth 12, 1 thread, ${nWorkers} workers...`);
 
-  const newFile = !existsSync(OUTPUT_PATH);
+  const newFile = !existsSync(OUTPUT_PATH) || statSync(OUTPUT_PATH).size === 0; // write header for a missing or empty file
   const sink = createWriteStream(OUTPUT_PATH, { flags: 'a' });
   if (newFile) sink.write(columns.join(',') + '\n');
 
@@ -119,13 +150,26 @@ async function main() {
   let nextIdx = 0;
   let completed = 0;
   let errors = 0;
+  let stopping = false;
   const pending = new Map();
+  const children = [];
+
+  // Graceful interrupt: stop dispatching new games but let each worker finish (and
+  // write) the game in flight, then shut workers down over IPC and exit cleanly so
+  // a rerun resumes from exactly here. A second signal force-quits.
+  const onSignal = (sig) => {
+    if (stopping) { for (const w of children) w.kill('SIGKILL'); process.exit(130); }
+    stopping = true;
+    console.log(`\n${sig} received - finishing in-flight games, then stopping. Rerun to resume.`);
+  };
+  process.on('SIGINT', () => onSignal('SIGINT'));
+  process.on('SIGTERM', () => onSignal('SIGTERM'));
 
   await new Promise((done) => {
     let live = nWorkers;
 
     const dispatch = (worker) => {
-      if (nextIdx >= todo.length) {
+      if (stopping || nextIdx >= todo.length) {
         worker.send({ type: 'shutdown' });
         return;
       }
@@ -137,6 +181,7 @@ async function main() {
 
     for (let i = 0; i < nWorkers; i++) {
       const worker = fork(WORKER_PATH, [], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+      children.push(worker);
       worker.on('message', (msg) => {
         if (msg.type === 'ready') {
           dispatch(worker);
@@ -148,7 +193,7 @@ async function main() {
           row.evals = msg.evals;
           sink.write(csvLine(row, columns));
           completed++;
-          if (completed % FLUSH_EVERY === 0) {
+          if (completed % LOG_EVERY === 0) {
             const rate = completed / ((Date.now() - start) / 1000);
             const eta = rate ? Math.round((todo.length - completed) / rate) : 0;
             const now = new Date().toTimeString().slice(0, 8);

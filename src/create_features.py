@@ -24,9 +24,6 @@ def create_player_features(game):
     w_time_spent = time_spent[0::2]
     b_time_spent = time_spent[1::2]
 
-    w_shift_time = w_time_spent[np.abs(diffs[0::2]) > 100] # time spent on moves with significant change in centipawns 
-    b_shift_time = b_time_spent[np.abs(diffs[1::2]) > 100]
-
     previous = centipawns[:-1]
     w_pre, b_pre = previous[0::2], previous[1::2]
  
@@ -91,8 +88,6 @@ def create_player_features(game):
         'b_inaccuracies': int(((black_cpl >= 50) & (black_cpl < 100)).sum()),
         'w_max_cpl': float(white_cpl.max()) if white_cpl.size else np.nan, # worst single move (most cp lost)
         'b_max_cpl': float(black_cpl.max()) if black_cpl.size else np.nan,
-        'w_cpl_skew': pd.Series(white_cpl).skew(), # skewness of cpl distribution (shape of mistake profile)
-        'b_cpl_skew': pd.Series(black_cpl).skew(),
 
         # Temporal features
         'w_avg_move_time': np.mean(w_time_spent),
@@ -100,9 +95,7 @@ def create_player_features(game):
         'w_time_trouble_moves': np.sum(clocks[0::2] < start_time * 0.1), # number of moves where player had less than 10% time left
         'b_time_trouble_moves': np.sum(clocks[1::2] < start_time * 0.1),
         'w_opening_speed': np.mean(w_time_spent[:5]), # average time spent on first 5 moves (opening phase of the game)
-        'b_opening_speed': np.mean(b_time_spent[:5]),
-        'w_shift_move_time': np.mean(w_shift_time) if len(w_shift_time) > 0 else 0, # average time spent on moves with significant change in centipawns
-        'b_shift_move_time': np.mean(b_shift_time) if len(b_shift_time) > 0 else 0
+        'b_opening_speed': np.mean(b_time_spent[:5])
     })
 
 def format_df(games):
@@ -111,17 +104,15 @@ def format_df(games):
     features_df = df.apply(create_player_features, axis=1)
     df = pd.concat([df, features_df], axis=1)
     df = df.dropna(subset=['w_acpl', 'b_acpl'])
-    df[['w_shift_move_time', 'b_shift_move_time']] = \
-        df[['w_shift_move_time', 'b_shift_move_time']].fillna(0)
-    
+
     shared_cols = ['game_id', 'eco', 'ply_count', 'eval_volatility', 'category']
     independent_cols =  ['opening_speed', 'n_balanced', 'acpl', 'n_winning',
                          'avg_move_time', 'n_losing', 'acpl_balanced',
                          'cpl_p75', 'cpl_median', 'endgame_acpl',
                          'time_trouble_moves', 'acpl_losing', 'cpl_std',
-                         'best_move_rate', 'shift_move_time', 'acpl_winning',
+                         'best_move_rate', 'acpl_winning',
                          'opening_acpl', 'middlegame_acpl', 'awpl', 'blunders',
-                         'mistakes', 'inaccuracies', 'max_cpl', 'cpl_skew']
+                         'mistakes', 'inaccuracies', 'max_cpl']
 
     white_cols = ['white_elo'] + [f'w_{c}' for c in independent_cols]
     white_df = df[shared_cols + white_cols].copy()

@@ -87,6 +87,11 @@ async function evaluateGame(moves) {
 await boot();
 process.send({ type: 'ready' });
 
+// Ignore terminal signals: Ctrl-C hits the whole process group, but the parent
+// orchestrates a clean shutdown over IPC so the in-flight game finishes first.
+process.on('SIGINT', () => {});
+process.on('SIGTERM', () => {});
+
 process.on('message', async (msg) => {
   if (msg.type === 'game') {
     try {

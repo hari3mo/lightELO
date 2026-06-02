@@ -32,17 +32,17 @@ NUM_COLS = ['opening_speed', 'n_balanced', 'acpl', 'eval_volatility',
             'ply_count', 'n_winning', 'avg_move_time', 'n_losing',
             'acpl_balanced', 'cpl_p75', 'cpl_median', 'endgame_acpl',
             'time_trouble_moves', 'acpl_losing', 'cpl_std',
-            'best_move_rate', 'shift_move_time', 'acpl_winning',
+            'best_move_rate', 'acpl_winning',
             'opening_acpl', 'middlegame_acpl', 'awpl', 'blunders',
-            'mistakes', 'inaccuracies', 'max_cpl', 'cpl_skew']
+            'mistakes', 'inaccuracies', 'max_cpl']
 FEATURES = NUM_COLS + CAT_COLS
 INDEPENDENT = ['opening_speed', 'n_balanced', 'acpl', 'n_winning',
                'avg_move_time', 'n_losing', 'acpl_balanced',
                'cpl_p75', 'cpl_median', 'endgame_acpl',
                'time_trouble_moves', 'acpl_losing', 'cpl_std',
-               'best_move_rate', 'shift_move_time', 'acpl_winning',
+               'best_move_rate', 'acpl_winning',
                'opening_acpl', 'middlegame_acpl', 'awpl', 'blunders',
-               'mistakes', 'inaccuracies', 'max_cpl', 'cpl_skew']
+               'mistakes', 'inaccuracies', 'max_cpl']
 
 model: CatBoostRegressor | None = None
 
