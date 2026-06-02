@@ -5,7 +5,7 @@ import { PlayerCapturedBar } from './components/CapturedBar';
 import { ChessPiece } from './components/ChessPieces';
 import { getAIMove } from './utils/ai';
 import { detectOpening, classifyEco } from './utils/openings';
-import { stockfish, type Evaluation } from './utils/stockfish';
+import Evaluation, { stockfish } from './utils/stockfish';
 import { ScramblingDigits } from './components/PredictionLoaders';
 import { BoardTheme, GameMode, GameMove, AIDifficulty, PieceType } from './types';
 import { Toaster, toast } from 'sonner';
@@ -766,8 +766,14 @@ export default function App() {
     const timer = setTimeout(async () => {
       setIsPredicting(true);
       try {
-        // 1. New: Extract the moves as a space-separated string (e.g. "e4 e5 Nf3")
-        const movesStr = history.map((m) => m.san).join(' ');
+        // Compute per-ply evals client-side (White's POV, pawns; mates clamped ±100),
+        // matching the training eval format. The server runs the model only.
+        const evalsArr: string[] = [];
+        for (const m of history) {
+          const ev = await stockfish.eval(m.fenAfter, 12, ctrl.signal);
+          evalsArr.push(String(ev.pawns));
+        }
+        const evalsStr = evalsArr.join(';');
 
         const clocksStr = history
           .map((m) => clockToSeconds(m.clockTime))
@@ -785,12 +791,11 @@ export default function App() {
           ? headerEco
           : (classifyEco(history.map((m) => m.san))?.eco ?? 'A00');
 
-        // 2. Updated POST request to send 'moves' instead of 'evals'
         const r = await fetch('/predict', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            moves: movesStr,     // <-- Sending raw moves now!
+            evals: evalsStr,
             clocks: clocksStr,
             time_control: tc,
             eco,
