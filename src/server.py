@@ -5,10 +5,8 @@ from fastapi import FastAPI, HTTPException
 from catboost import CatBoostRegressor
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import chess.engine
 import pandas as pd
 import logging
-import chess
 import os
 
 load_dotenv()
@@ -26,7 +24,6 @@ if PROD:
 else:
     logger.info('Running in development mode.')
 
-STOCKFISH_PATH = './stockfish'
 MODEL_PATH = 'models/catboost.sav'
 MIN_PLIES = 10
 
@@ -64,7 +61,7 @@ app.add_middleware(
 )
 
 class PredictRequest(BaseModel):
-    moves: str
+    evals: str
     clocks: str
     time_control: str = '600+0'
     eco: str = 'A00'
@@ -80,27 +77,6 @@ def category_from_time_control(tc: str) -> str:
     if total < 480: return 'blitz'
     if total < 1500: return 'rapid'
     return 'classical'
-
-def generate_evals_from_moves(moves_str: str, depth: int = 12) -> str:
-    board = chess.Board()
-    moves = [m for m in moves_str.split() if m.strip()]
-    evals = []
-    
-    with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
-        engine.configure({'Threads': 1, 'Hash': 64})
-        for move_san in moves:
-            board.push_san(move_san)
-            info = engine.analyse(board, chess.engine.Limit(depth=depth))
-            score = info['score'].white()
-            
-            if score.is_mate():
-                val = 100.0 if score.mate() > 0 else -100.0
-                evals.append(f'{val:g}')
-            else:
-                cp_val = score.score() / 100.0
-                evals.append(f'{cp_val:g}')
-                
-    return ';'.join(evals)
 
 def build_feature_frame(row: dict) -> pd.DataFrame:
     feats = create_player_features(pd.Series(row))
@@ -130,41 +106,28 @@ def health():
 @app.post('/predict')
 def predict(req: PredictRequest):
     logger.info('=== NEW PREDICTION REQUEST ===')
-    moves_list = [m for m in req.moves.split(' ') if m]
-    ply_count = len(moves_list)
-    logger.info(f'Parsed {ply_count} plies. ECO: {req.eco} | TC: {req.time_control}')
-    
+    ply_count = len(req.evals.split(';')) if req.evals else 0
+    logger.info(f'Received {ply_count} evals. ECO: {req.eco} | TC: {req.time_control}')
+
     if ply_count < MIN_PLIES:
         logger.warning(f'Rejected: Not enough moves ({ply_count}/{MIN_PLIES})')
         raise HTTPException(status_code=400, detail=f'Need at least {MIN_PLIES} moves to predict.')
-
-    try:
-        logger.info(f'Starting Stockfish Depth 12 evaluation...')
-        evals_str = generate_evals_from_moves(req.moves)
-        logger.info(f'Engine evaluation complete.')
-    except FileNotFoundError:
-        logger.error(f'Stockfish binary not found at path: {STOCKFISH_PATH}')
-        raise HTTPException(status_code=500, detail='Server misconfiguration: Stockfish engine missing.')
-    except Exception as e:
-        logger.error(f'Engine failure: {str(e)}', exc_info=True)
-        raise HTTPException(status_code=500, detail=f'Engine evaluation failed: {str(e)}')
 
     tc = req.time_control if req.time_control and req.time_control not in ['-', '?'] else '600+0'
     if '+' not in tc: tc = f'{tc}+0'
 
     row = {
-        'evals': evals_str,
+        'evals': req.evals,
         'clocks': req.clocks,
         'time_control': tc,
         'eco': req.eco or 'A00',
         'category': category_from_time_control(tc),
         'ply_count': ply_count,
     }
-    
+
     try:
         logger.info('Extracting match features...')
         feats = build_feature_frame(row)
-        # feats = feats.fillna(0)
     except Exception as e:
         logger.error(f'Feature engineering crashed: {str(e)}', exc_info=True)
         raise HTTPException(status_code=500, detail=f'Feature extraction failed: {str(e)}')
