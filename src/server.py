@@ -113,10 +113,6 @@ def predict(req: PredictRequest):
     ply_count = len(req.evals.split(';')) if req.evals else 0
     logger.info(f'Received {ply_count} evals. ECO: {req.eco} | TC: {req.time_control}')
 
-    if ply_count < MIN_PLIES:
-        logger.warning(f'Rejected: Not enough moves ({ply_count}/{MIN_PLIES})')
-        raise HTTPException(status_code=400, detail=f'Need at least {MIN_PLIES} moves to predict.')
-
     tc = req.time_control if req.time_control and req.time_control not in ['-', '?'] else '600+0'
     if '+' not in tc: tc = f'{tc}+0'
 
