@@ -109,7 +109,7 @@ def health():
 
 @app.post('/predict')
 def predict(req: PredictRequest):
-    logger.info('=== NEW PREDICTION REQUEST ===')
+    logger.info('=== PREDICTION REQUEST ===')
     ply_count = len(req.evals.split(';')) if req.evals else 0
     logger.info(f'Received {ply_count} evals. ECO: {req.eco} | TC: {req.time_control}')
 

@@ -755,7 +755,7 @@ export default function App() {
     // Check if we actually have clock data before predicting
     const hasClocks = history.some(m => m.clockTime);
 
-    if (history.length < 10 || !hasClocks) {
+    if (!hasClocks) {
       setPredictedWhiteElo(null);
       setPredictedBlackElo(null);
       setIsPredicting(false);
