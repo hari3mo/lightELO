@@ -118,11 +118,58 @@ def stream_games():
         for line in text:
             game_text.append(line)
             if line.startswith("1. "):
-                if "%eval" in line:
-                    yield chess.pgn.read_game(io.StringIO("".join(game_text)))
+                yield chess.pgn.read_game(io.StringIO("".join(game_text)))
                 game_text.clear()
 
 def filter_games(games):
+    range_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
+    player_counts = {}
+    yielded_games = 0
+    parsed_games = 0
+
+    for game in games:
+        if yielded_games >= TOTAL_GAMES or sum(range_counts.values()) >= TOTAL_GAMES:
+            break
+        parsed_games += 1
+        headers = game.headers
+        white_elo, black_elo = int(headers.get('WhiteElo', 0)), int(headers.get('BlackElo', 0))
+        if not (white_elo and black_elo): # skip games with missing ELO info
+            continue
+        white_range, black_range = get_elo_range(white_elo), get_elo_range(black_elo)
+        if white_range is None or black_range is None: # skip games with outside of ELO ranges
+            continue
+        time_control_str = headers.get('TimeControl', '')
+        if get_time_category(time_control_str) not in TIME_CONTROL_FILTER: # skip games with unwanted time controls
+            continue
+        white_player, black_player = headers.get('White', ''), headers.get('Black', '')
+        if player_counts.get(white_player, 0) >= MAX_GAMES_PER_PLAYER: # skip if already extracted 5 games from this player
+            continue
+        if player_counts.get(black_player, 0) >= MAX_GAMES_PER_PLAYER:
+            continue
+        first_move = game.next()
+        if first_move is None: # skip empty games
+            continue
+        next_move = first_move.next()
+        if next_move is None:
+            continue
+        base_time = int(time_control_str.split('+')[0])
+        w_clock = get_clock_time(first_move.comment)
+        b_clock = get_clock_time(next_move.comment)
+        if w_clock is None or b_clock is None: # clocks are needed for time features; real-time games carry %clk
+            continue
+        if w_clock < (base_time * 0.6) or b_clock < (base_time * 0.6): # skip if 40% of base time reduced before first move ('Berserk' mode)
+            continue
+        
+        range_counts[white_range] += 1
+        player_counts[white_player] = player_counts.get(white_player, 0) + 1
+        player_counts[black_player] = player_counts.get(black_player, 0) + 1
+
+        if yielded_games % 1_000 == 0: # print debug info every 1,000 games
+            print(f'{time.strftime('%H:%M:%S')} - {yielded_games}/{parsed_games} games: {range_counts}')
+        
+        yield game
+
+# def filter_games(games):
     range_counts = {label: 0 for label, min_elo, max_elo in ELO_RANGES}
     player_counts = {}
     yielded_games = 0
@@ -180,7 +227,6 @@ def filter_games(games):
         yield game
 
 def main():
-    # Ensure data directory exists
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
     if os.path.exists(OUTPUT_PATH):
