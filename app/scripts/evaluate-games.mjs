@@ -1,6 +1,7 @@
-// Stage 2 of the pipeline (the JS twin of the old src/evaluate_games.py).
-// Reads extracted games, scores every position with the SAME Stockfish build the
-// browser app uses, and writes the eval-filled CSV consumed by create_features.
+// Stage 2 of the pipeline
+// Reads extracted games, takes a deterministic SAMPLE_SIZE subset, scores every
+// position with the SAME Stockfish build the browser app uses, and writes the
+// eval-filled CSV consumed by create_features.
 //
 // Runs a pool of child-process workers (one engine each). Resumable: rows whose
 // game_id is already in the output are skipped. Usage:
@@ -20,6 +21,7 @@ const OUTPUT_PATH = resolve(REPO_ROOT, 'data', 'lichess_games.csv');
 const WORKER_PATH = resolve(__dirname, 'eval-worker.mjs');
 
 const FLUSH_EVERY = 200;
+const SAMPLE_SIZE = 140_000; // match the row count input to create_features.py
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -36,6 +38,29 @@ function csvField(v) {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 const csvLine = (row, cols) => cols.map((c) => csvField(row[c])).join(',') + '\n';
+
+// Deterministic 32-bit hash of a string (xmur3 finalizer) for stable sampling.
+function hashId(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+// Deterministic uniform subset of 140_000 rows: keep those with the smallest game_id hashes.
+// Stable across runs (so resume re-selects the same games) and independent of input order.
+function sampleRows(rows, n) {
+  if (rows.length <= n) return rows;
+  return rows
+    .map((r) => ({ r, h: hashId(String(r.game_id)) }))
+    .sort((a, b) => a.h - b.h || (a.r.game_id < b.r.game_id ? -1 : 1))
+    .slice(0, n)
+    .map((x) => x.r);
+}
 
 function readRows(path) {
   return new Promise((res, rej) => {
@@ -69,12 +94,14 @@ async function main() {
     console.log('No rows in input.');
     return;
   }
-  const columns = Object.keys(allRows[0]);
+
+  const sampledRows = sampleRows(allRows, SAMPLE_SIZE);
+  const columns = Object.keys(sampledRows[0]);
 
   const doneIds = readDoneIds(OUTPUT_PATH);
   if (doneIds.size) console.log(`Resuming: ${doneIds.size} games already evaluated.`);
 
-  let todo = allRows.filter((r) => !doneIds.has(r.game_id));
+  let todo = sampledRows.filter((r) => !doneIds.has(r.game_id));
   if (limit != null) todo = todo.slice(0, limit);
   if (todo.length === 0) {
     console.log('Nothing to evaluate.');

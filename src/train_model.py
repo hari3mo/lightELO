@@ -6,14 +6,17 @@ import os
 
 FEATURES_PATH = 'data/lichess_features.csv' # output from create_features.py
 OUTPUT_PATH = 'models/catboost.sav' # export trained model
+PARAMS_PATH = 'models/params/catboost.csv' # best hyperparameters from tuning
 
 def train(df):
     cat_cols = ['eco', 'category', 'is_white']
-    num_cols = ['opening_speed', 'n_balanced', 'acpl', 'eval_volatility', 
+    num_cols = ['opening_speed', 'n_balanced', 'acpl', 'eval_volatility',
                 'ply_count', 'n_winning', 'avg_move_time', 'n_losing',
                 'acpl_balanced', 'cpl_p75', 'cpl_median', 'endgame_acpl',
-                'time_trouble_moves', 'acpl_losing', 'cpl_std', 
-                'best_move_rate', 'shift_move_time','acpl_winning']
+                'time_trouble_moves', 'acpl_losing', 'cpl_std',
+                'best_move_rate', 'shift_move_time','acpl_winning',
+                'opening_acpl', 'middlegame_acpl', 'awpl', 'blunders',
+                'mistakes', 'inaccuracies', 'max_cpl', 'cpl_skew']
     
     features = num_cols + cat_cols
     for col in cat_cols:
@@ -35,7 +38,10 @@ def train(df):
     X_te, y_te = test_df[features], test_df['elo']
 
     # Train CatBoost model
-    best_params = pd.read_csv('models/params/catboost.csv').iloc[0].to_dict() # load best hyperparameters from tuning
+    if os.path.exists(PARAMS_PATH):
+        best_params = pd.read_csv(PARAMS_PATH).iloc[0].to_dict() # load best hyperparameters from tuning
+    else:
+        best_params = {} # use default hyperparameters
     train_pool = Pool(X_tr, y_tr, cat_features=cat_cols)
     val_pool = Pool(X_va, y_va, cat_features=cat_cols)
     model = CatBoostRegressor(iterations=3000,

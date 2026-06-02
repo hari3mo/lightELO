@@ -33,6 +33,13 @@ CSV_COLUMNS = [
     'utc_date', 'utc_time', 'ply_count', 'moves', 'evals', 'clocks'
 ]
 
+# Parses an integer header value, returning None if missing or non-numeric ('?', '', etc.)
+def safe_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
 # Extracts ELO range
 def get_elo_range(elo):
     for label, low, high in ELO_RANGES:
@@ -41,9 +48,11 @@ def get_elo_range(elo):
 
 # Extracts time control category
 def get_time_category(time_control_str):
-    if time_control_str == '-':
+    if '+' not in time_control_str: # '-' (correspondence), '?', or a missing TimeControl header
         return None
     base, increment = time_control_str.split('+')
+    if not (base.isdigit() and increment.isdigit()): # malformed time control
+        return None
     total = int(base) + 40 * int(increment)
     if total < 180:   
         return 'bullet'
@@ -124,7 +133,7 @@ def filter_games(games):
             break
         parsed_games += 1
         headers = game.headers
-        white_elo, black_elo = int(headers.get('WhiteElo', 0)), int(headers.get('BlackElo', 0))
+        white_elo, black_elo = safe_int(headers.get('WhiteElo')), safe_int(headers.get('BlackElo'))
         if not (white_elo and black_elo): # skip games with missing ELO info
             continue
         white_range, black_range = get_elo_range(white_elo), get_elo_range(black_elo)
@@ -163,45 +172,46 @@ def filter_games(games):
             print(f"{time.strftime('%H:%M:%S')} - {filtered_count}/{parsed_games} games: {range_counts}")
 
 # Sequentially read games from compressed pgn.zst file; too large to fit in memory (~30 gb)
-# **Code from Gemini**
 def stream_games():
     dctx = zstd.ZstdDecompressor(max_window_size=2**31)
     with open(PGN_PATH, "rb") as fh, dctx.stream_reader(fh) as reader:
         text = io.TextIOWrapper(reader, encoding="utf-8", errors="replace")
-        game_text = []
-        for line in text:
-            game_text.append(line)
-            if line.startswith("1. "):
-                yield chess.pgn.read_game(io.StringIO("".join(game_text)))
-                game_text.clear()
+        while (game := chess.pgn.read_game(text)) is not None: # read_game tracks game boundaries itself
+            yield game
 
 def main():
-    if not os.path.exists(OUTPUT_PATH):
-        rows = []
-        chunk_size = 1_000
-        
-        print(f"Starting iterative extraction to {OUTPUT_PATH}...")
-        for game in filter_games(stream_games()):
-            rows.append(extract_row(game))
-            
-            # Periodically dump to disk to protect data and keep memory usage stable
-            if len(rows) >= chunk_size:
-                df = pd.DataFrame(rows, columns=CSV_COLUMNS)
-                # Only write header if the file doesn't exist yet or is completely empty
-                write_header = not os.path.exists(OUTPUT_PATH) or os.stat(OUTPUT_PATH).st_size == 0
-                df.to_csv(OUTPUT_PATH, mode='a', index=False, header=write_header)
-                rows.clear()
-        
-        # Write any trailing games that didn't perfectly align with the chunk size split
-        if rows:
-            df = pd.DataFrame(rows, columns=CSV_COLUMNS)
-            write_header = not os.path.exists(OUTPUT_PATH) or os.stat(OUTPUT_PATH).st_size == 0
-            df.to_csv(OUTPUT_PATH, mode='a', index=False, header=write_header)
-            rows.clear()
-            
-        print("Extraction complete!")
-    else:
+    if os.path.exists(OUTPUT_PATH):
         print(f'{OUTPUT_PATH} already exists.')
+        return
+
+    rows = []
+    chunk_size = 1_000
+    tmp_path = OUTPUT_PATH + '.tmp' # keep temp file in case of crash
+    if os.path.exists(tmp_path): # discard file left by a previous crashed run
+        os.remove(tmp_path)
+
+    print(f"Starting iterative extraction to {OUTPUT_PATH}...")
+    for game in filter_games(stream_games()):
+        rows.append(extract_row(game))
+
+        # Periodically dump to disk to protect data and keep memory usage stable
+        if len(rows) >= chunk_size:
+            df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+            # Only write header if the file doesn't exist yet or is completely empty
+            write_header = not os.path.exists(tmp_path) or os.stat(tmp_path).st_size == 0
+            df.to_csv(tmp_path, mode='a', index=False, header=write_header)
+            rows.clear()
+
+    # Write any trailing games that didn't perfectly align with the chunk size split
+    if rows:
+        df = pd.DataFrame(rows, columns=CSV_COLUMNS)
+        write_header = not os.path.exists(tmp_path) or os.stat(tmp_path).st_size == 0
+        df.to_csv(tmp_path, mode='a', index=False, header=write_header)
+        rows.clear()
+
+    if os.path.exists(tmp_path): # promote the completed file atomically
+        os.replace(tmp_path, OUTPUT_PATH)
+    print("Extraction complete!")
 
 if __name__ == "__main__":
     main()

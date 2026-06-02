@@ -37,7 +37,10 @@ if __name__ == "__main__":
     train_start = time.time()
     if '--tune' in args:
         from src import tune_model
+        tune_start = time.time()
         tune_model.main()
+        tune_end = time.time()
+        print(f'Model tuning completed in {int(tune_end - tune_start)} seconds.')
     train_model.main()
     train_end = time.time()
     print(f'Model training completed in {int(train_end - train_start)} seconds.')

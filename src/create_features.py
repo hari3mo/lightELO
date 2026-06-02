@@ -36,6 +36,16 @@ def create_player_features(game):
     w_end = np.arange(len(white_cpl)) >= 30 # moves after 30 moves (endgame phase)
     b_end = np.arange(len(black_cpl)) >= 30
 
+    win_prob = 1 / (1 + np.exp(-0.00368208 * centipawns)) # eval -> white's win expectation in [0, 1] (logistic, Lichess-fit constant)
+    wp_diffs = np.diff(win_prob)
+    w_wpl = np.maximum(0, -wp_diffs[0::2]) # win-probability lost per move (expected points lost; re-weights cpl by how much a move actually swung the game)
+    b_wpl = np.maximum(0,  wp_diffs[1::2])
+
+    w_open = np.arange(len(white_cpl)) < 15 # opening phase (first 15 moves); middlegame is moves 15-30, endgame is >= 30
+    b_open = np.arange(len(black_cpl)) < 15
+    w_mid = (np.arange(len(white_cpl)) >= 15) & ~w_end
+    b_mid = (np.arange(len(black_cpl)) >= 15) & ~b_end
+
     return pd.Series({
         # Centipawn features
         'w_acpl': np.mean(white_cpl), # average centipawn loss
@@ -63,6 +73,26 @@ def create_player_features(game):
         'b_n_losing': int(b_los.sum()),
         'w_endgame_acpl': np.mean(white_cpl[w_end]), # average cpl in endgame phase
         'b_endgame_acpl': np.mean(black_cpl[b_end]),
+        'w_opening_acpl': np.mean(white_cpl[w_open]), # average cpl in opening phase (first 15 moves)
+        'b_opening_acpl': np.mean(black_cpl[b_open]),
+        'w_middlegame_acpl': np.mean(white_cpl[w_mid]), # average cpl in middlegame phase (moves 15-30)
+        'b_middlegame_acpl': np.mean(black_cpl[b_mid]),
+
+        # Win-probability features
+        'w_awpl': np.mean(w_wpl), # average win-probability loss (expected points lost per move)
+        'b_awpl': np.mean(b_wpl),
+
+        # Move-quality distribution
+        'w_blunders': int((white_cpl >= 300).sum()), # number of moves losing >= 300 cp
+        'b_blunders': int((black_cpl >= 300).sum()),
+        'w_mistakes': int(((white_cpl >= 100) & (white_cpl < 300)).sum()), # number of moves losing 100-300 cp
+        'b_mistakes': int(((black_cpl >= 100) & (black_cpl < 300)).sum()),
+        'w_inaccuracies': int(((white_cpl >= 50) & (white_cpl < 100)).sum()), # number of moves losing 50-100 cp
+        'b_inaccuracies': int(((black_cpl >= 50) & (black_cpl < 100)).sum()),
+        'w_max_cpl': float(white_cpl.max()) if white_cpl.size else np.nan, # worst single move (most cp lost)
+        'b_max_cpl': float(black_cpl.max()) if black_cpl.size else np.nan,
+        'w_cpl_skew': pd.Series(white_cpl).skew(), # skewness of cpl distribution (shape of mistake profile)
+        'b_cpl_skew': pd.Series(black_cpl).skew(),
 
         # Temporal features
         'w_avg_move_time': np.mean(w_time_spent),
@@ -76,7 +106,8 @@ def create_player_features(game):
     })
 
 def format_df(games):
-    df = pd.read_csv(games).sample(140_000, random_state=42)
+    df = pd.read_csv(games)
+    df = df.sample(min(140_000, len(df)), random_state=42) # cap at available rows so partial eval runs don't crash
     features_df = df.apply(create_player_features, axis=1)
     df = pd.concat([df, features_df], axis=1)
     df = df.dropna(subset=['w_acpl', 'b_acpl'])
@@ -84,11 +115,13 @@ def format_df(games):
         df[['w_shift_move_time', 'b_shift_move_time']].fillna(0)
     
     shared_cols = ['game_id', 'eco', 'ply_count', 'eval_volatility', 'category']
-    independent_cols =  ['opening_speed', 'n_balanced', 'acpl', 'n_winning', 
-                         'avg_move_time', 'n_losing', 'acpl_balanced', 
-                         'cpl_p75', 'cpl_median', 'endgame_acpl', 
-                         'time_trouble_moves', 'acpl_losing', 'cpl_std', 
-                         'best_move_rate', 'shift_move_time', 'acpl_winning']
+    independent_cols =  ['opening_speed', 'n_balanced', 'acpl', 'n_winning',
+                         'avg_move_time', 'n_losing', 'acpl_balanced',
+                         'cpl_p75', 'cpl_median', 'endgame_acpl',
+                         'time_trouble_moves', 'acpl_losing', 'cpl_std',
+                         'best_move_rate', 'shift_move_time', 'acpl_winning',
+                         'opening_acpl', 'middlegame_acpl', 'awpl', 'blunders',
+                         'mistakes', 'inaccuracies', 'max_cpl', 'cpl_skew']
 
     white_cols = ['white_elo'] + [f'w_{c}' for c in independent_cols]
     white_df = df[shared_cols + white_cols].copy()
