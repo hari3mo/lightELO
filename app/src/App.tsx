@@ -147,13 +147,13 @@ const StyledMove = ({ san, color, isActive, onClick, onBoardPieceCode }: { san: 
   const displaySan = isCastle ? san.replace(/0/g, 'O') : san;
 
   return (
-    <div ref={moveRef} onClick={onClick} className={`flex w-full min-w-0 items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-all duration-150 ${isActive ? 'bg-amber-100 dark:bg-amber-500/15 ring-1 ring-inset ring-amber-400/60 dark:ring-amber-500/40 shadow-sm' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}>
+    <div ref={moveRef} onClick={onClick} className={`flex w-full min-w-0 items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer transition-all duration-150 ${isActive ? 'bg-zinc-200 dark:bg-zinc-700/60 ring-1 ring-inset ring-zinc-300/80 dark:ring-zinc-600/60 shadow-sm' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/70'}`}>
       {pieceType && (
         <div className="w-4 h-4 shrink-0 flex items-center justify-center -ml-0.5" style={{ filter: color === 'w' ? 'drop-shadow(0px 1px 1px rgba(0,0,0,0.1))' : 'drop-shadow(0px 1px 1px rgba(255,255,255,0.05))' }}>
           <ChessPiece type={pieceType} color={color} />
         </div>
       )}
-      <span className={`text-[13px] ${isCastle ? 'font-sans' : 'font-mono'} tracking-tight font-bold ${isActive ? 'text-amber-900 dark:text-amber-200' : color === 'w' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}`}>
+      <span className={`text-[13px] ${isCastle ? 'font-sans' : 'font-mono'} tracking-tight font-bold ${isActive ? 'text-zinc-900 dark:text-zinc-100' : color === 'w' ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}`}>
         {pieceType ? restOfMove : displaySan}
       </span>
     </div>
@@ -887,7 +887,7 @@ export default function App() {
         let displayMins = Math.floor(totalSeconds / 60);
 
         if (totalSeconds < 60) {
-          return `${displayMins.toString().padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
+          return `${displayMins.toString().padStart(2, '0')}:${s.toFixed(1).padStart(3, '0')}`;
         } else {
           return `${displayMins.toString().padStart(2, '0')}:${Math.floor(s).toString().padStart(2, '0')}`;
         }
@@ -900,7 +900,7 @@ export default function App() {
     const secs = totalSeconds % 60;
 
     if (totalSeconds < 60) {
-      return `00:${secs.toFixed(1).padStart(4, '0')}`;
+      return `00:${secs.toFixed(1).padStart(3, '0')}`;
     }
     return `${mins.toString().padStart(2, '0')}:${Math.floor(secs).toString().padStart(2, '0')}`;
   };
