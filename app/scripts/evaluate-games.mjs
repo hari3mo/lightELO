@@ -16,6 +16,7 @@ import { createReadStream, existsSync, createWriteStream, readFileSync, statSync
 import { dirname, resolve } from 'path';
 import os from 'os';
 import { parse } from 'csv-parse';
+import { parse as parseSync } from 'csv-parse/sync'; // <-- Added sync parser import
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -79,7 +80,8 @@ function readRows(path) {
 function readDoneIds(path) {
   const ids = new Set();
   if (!existsSync(path)) return ids;
-  const records = parse(readFileSync(path, 'utf8'), { columns: true, skip_empty_lines: true, relax_column_count: true });
+  // <-- Using parseSync instead of parse below
+  const records = parseSync(readFileSync(path, 'utf8'), { columns: true, skip_empty_lines: true, relax_column_count: true });
   // Require evals: a row truncated by a hard interrupt has none, so it's re-evaluated rather than skipped with bad data.
   for (const r of records) if (r.game_id && r.evals) ids.add(r.game_id);
   return ids;
