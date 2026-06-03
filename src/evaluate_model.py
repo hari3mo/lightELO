@@ -126,6 +126,7 @@ def main():
     if os.path.exists(FEATURES_PATH):
         if args.all:
             for model_type in ['catboost', 'xgboost', 'lightgbm', 'linear']:
+                print(f"\nEvaluating {model_type}...")
                 evaluate(model_type)
         else:
             evaluate(args.model)
