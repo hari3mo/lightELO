@@ -1,6 +1,6 @@
 # lightElo
 
-Predict a chess player's Elo rating from a single PGN. Engine-derived move-quality and time-usage features feed gradient-boosted tree regressors, benchmarked against a linear baseline. (COGS 109 final project — see [REPORT.md](REPORT.md).)
+Predict a chess player's Elo rating from a single PGN. Engine-derived move-quality and time-usage features feed gradient-boosted tree regressors and benchmarked against a linear baseline. 
 
 ## Pipeline
 
