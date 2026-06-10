@@ -1231,7 +1231,7 @@ export default function App() {
                       </span>
                     )}
                     <span className="text-[10px] font-sans text-zinc-400 dark:text-zinc-500 mt-0.5 ml-1 leading-snug">
-                        PGNs must include move timestamps (<span className="font-mono">[%clk]</span> tags) to be rated. Please allow the ~15 seconds to load model dependencies for your first prediction.
+                        PGNs must include move timestamps (<span className="font-mono">[%clk]</span> tags) to be rated. Please allow ~15 seconds for the model to load for your first prediction.
                     </span>
                   </div>
                 )}
