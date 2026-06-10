@@ -1048,7 +1048,7 @@ export default function App() {
                   </div>
 
                   <p className="font-sans text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 mt-1">
-                    Predictions are on the Lichess rating scale, which runs ~400 points higher than Chess.com.{' '}
+                    Simply paste a pgn of on your games to see your elo rating (enable timestamps for better accuracy!). Predictions are on the Lichess scale, which runs higher than Chess.com.{' '}
                     <a
                       href="https://www.chessratingcomparison.com/graphs"
                       target="_blank"
