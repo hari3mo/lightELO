@@ -2,7 +2,7 @@
 
 Predict a chess player's Elo rating from a single PGN. Engine-derived move-quality and time-usage features feed gradient-boosted tree regressors and benchmarked against a linear baseline. 
 
-[Try it here.](https://light-elo.vercel.app/)
+[Try it here](https://light-elo.vercel.app/)
 
 ## Pipeline
 
