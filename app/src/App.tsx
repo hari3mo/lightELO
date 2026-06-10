@@ -1048,7 +1048,7 @@ export default function App() {
                   </div>
 
                   <p className="font-sans text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 mt-1">
-                    Simply play a few moves or paste in a pgn to see your elo rating. Predictions are on the Lichess scale, which runs higher than Chess.com.{' '}
+                    Simply play a few moves or paste in a pgn to see your elo rating. Predictions are on the Lichess scale, which runs higher than Chess.com. Please allow ~15 seconds for model to load for your first prediction.{' '}
                     <a
                       href="https://www.chessratingcomparison.com/graphs"
                       target="_blank"
