@@ -1048,7 +1048,7 @@ export default function App() {
                   </div>
 
                   <p className="font-sans text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 mt-1">
-                    Simply play a few moves or paste in a pgn to see your elo rating. Predictions are on the Lichess scale, which runs higher than Chess.com. Please allow ~15 seconds for model to load for your first prediction.{' '}
+                    Simply play a few moves or paste in a pgn to see your elo rating. Predictions are on the Lichess scale, which runs higher than Chess.com.{' '}
                     <a
                       href="https://www.chessratingcomparison.com/graphs"
                       target="_blank"
@@ -1230,6 +1230,9 @@ export default function App() {
                         {pgnErrorMsg || 'Invalid PGN format'}
                       </span>
                     )}
+                    <span className="text-[10px] font-sans text-zinc-400 dark:text-zinc-500 mt-0.5 ml-1 leading-snug">
+                        PGNs must include move timestamps (<span className="font-mono">[%clk]</span> tags) to be rated. Please allow the ~15 seconds to load model dependencies for your first prediction.
+                    </span>
                   </div>
                 )}
 
