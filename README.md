@@ -2,6 +2,8 @@
 
 Predict a chess player's Elo rating from a single PGN. Engine-derived move-quality and time-usage features feed gradient-boosted tree regressors and benchmarked against a linear baseline. 
 
+[Try it here](https://light-elo.vercel.app/)
+
 ## Pipeline
 
 1. **Extract** — stream-sample the Lichess Jan 2026 database (`src/extract_games.py`) → 140k games.
