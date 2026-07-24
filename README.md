@@ -6,10 +6,10 @@ Predict a chess player's Elo rating from a single PGN. Engine-derived move-quali
 
 ## Pipeline
 
-1. **Extract** — stream-sample the Lichess Jan 2026 database (`src/extract_games.py`) → 140k games.
-2. **Evaluate** — fill missing positions with Stockfish 17 via Node (`app/scripts/evaluate-games.mjs`).
-3. **Features** — 27 predictors per player-game (`src/create_features.py`).
-4. **Train + evaluate** — `src/train_model.py`, `src/evaluate_model.py`.
+1. **Extract** - stream-sample the Lichess Jan 2026 database (`src/extract_games.py`) → 140k games.
+2. **Evaluate** - fill missing positions with Stockfish 17 via Node (`app/scripts/evaluate-games.mjs`).
+3. **Features** - 27 predictors per player-game (`src/create_features.py`).
+4. **Train + evaluate** - `src/train_model.py`, `src/evaluate_model.py`.
 
 ## Setup
 
